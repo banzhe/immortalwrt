@@ -30,6 +30,12 @@ uci delete network.lan.ipaddr
 uci delete network.lan.netmask
 uci delete network.lan.ip6assign
 
+# 删除默认的 WAN/WAN6 接口
+# 默认 99-default_network 在检测到 eth1 时会自动创建 wan(dhcp)/wan6(dhcpv6)，
+# 单网卡旁路场景下会导致双 DHCP 客户端和双默认路由
+uci -q delete network.wan
+uci -q delete network.wan6
+
 # 关闭 LAN 口的 DHCP 服务 (DHCP Server)
 # 如果 dhcp.lan 不存在，uci 会报错，所以先尝试设置
 uci set dhcp.lan.ignore='1'
@@ -167,7 +173,9 @@ async function installOpenClashCore(coreUrl: string) {
 
   const targetPath = path.join(coreDir, "clash_meta");
   console.log(`Installing clash binary to ${targetPath}`);
-  await fs.rename(clashBin, targetPath);
+  // /tmp may be a different filesystem (tmpfs), so rename(2) can fail with EXDEV.
+  await fs.copyFile(clashBin, targetPath);
+  await fs.unlink(clashBin);
   await fs.chmod(targetPath, 0o777);
   console.log("OpenClash core installed.");
 }
